@@ -1,0 +1,79 @@
+/* General container style */
+.home-container {
+  text-align: center;  /* Ensures text is centered */
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0 auto;
+  padding: 50px 20px;
+  background-color: #f4f7f6; /* Light background color */
+  color: #333; /* Dark text color for readability */
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* Center content vertically */
+  align-items: center; /* Center content horizontally */
+  min-height: 100vh; /* Full viewport height */
+}
+
+/* Header style */
+.home-container h1 {
+  font-size: 2.5em;
+  color: #3b8c9e; /* Soft blue header color */
+  font-weight: bold;
+  margin-bottom: 20px;
+  text-align: center; /* Ensure header text is centered */
+}
+
+/* Buttons style */
+.home-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;  /* Space between buttons */
+}
+
+.home-button {
+  padding: 12px 25px;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: bold;
+  border-radius: 8px;
+  border: none;
+  transition: all 0.3s ease-in-out;
+  width: 200px;  /* Button width for consistency */
+}
+
+.home-button:first-child {
+  background-color: #f77f00; /* Warm orange for Login button */
+  color: white;
+}
+
+.home-button:first-child:hover {
+  background-color: #ff9f3d; /* Lighter orange on hover */
+}
+
+.home-button:last-child {
+  background-color: #4CAF50; /* Fresh green for Register button */
+  color: white;
+}
+
+.home-button:last-child:hover {
+  background-color: #66bb6a; /* Lighter green on hover */
+}
+
+@media (max-width: 768px) {
+  /* Adjust button width and font size for smaller screens */
+  .home-button {
+    font-size: 16px;
+    width: 100%;  /* Full-width buttons on small screens */
+  }
+
+  .home-buttons {
+    gap: 10px;  /* Reduce space between buttons on mobile */
+  }
+
+  .home-container {
+    padding: 30px 15px;  /* Reduce padding on smaller screens */
+  }
+
+  h1 {
+    font-size: 2em;
+  }
+}
