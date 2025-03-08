@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState,useRef } from "react";
 import axios from "axios";
 import "./UploadPDF.css"; // Import CSS
 import useWindowSize from "./useWindowSize";
@@ -14,8 +14,9 @@ const UploadPDF = () => {
   const [menuVisible, setMenuVisible] = useState(null);
   const[message,setMessage]=useState("");
   const [isGenerateEnabled, setIsGenerateEnabled] = useState(false);
-
-  const question = "Sample generated question will be displayed here."; // Dummy question
+  const [questions,setQuestions] = useState("");
+  const [showPreview,setShowPreview] = useState(false);
+  const pdfurl=useRef(null)
 
   const handleFileChange = (event) => {
     const file = event.target.files[0];
@@ -68,20 +69,34 @@ const UploadPDF = () => {
     setQuestionGenerated(true);
         try
         {
-        
             const filedata=new FormData()
             filedata.append("pdfFile",pdfFile)
             filedata.append("fileName",fileName)
-        
+            filedata.append("difficulty",difficulty)
+            filedata.append("newItems",JSON.stringify(newItems))
+            
             const response=await axios.post(
                 "http://127.0.0.1:5000/Pdffile",
                 filedata,
-               { headers:{ "Content-Type": "multipart/form-data","Authorization": "Bearer AIzaSyAVHXlcL9-4WL7TRicIe8DjYjUYv_daDvw "}}
+               { 
+                headers:{ "Content-Type": "multipart/form-data","Authorization": "Bearer AIzaSyAVHXlcL9-4WL7TRicIe8DjYjUYv_daDvw "},
+               responseType:"blob"
+              }
+               
             );
-            if(response.status===200)
+            const content_type=response.headers['content-type'];
+            if(content_type==="application/pdf")
             {
-                setMessage(response.data.extracted_text);
+              console.log(response.data)
+              const quest=new Blob([response.data],{type:"application/pdf"})
+               pdfurl.current=URL.createObjectURL(quest)
+              setQuestions(pdfurl.current);
+               
             }
+            else if(content_type==="text/plain"){
+              setMessage(response.data);
+            }
+            else{}
         }
         catch(e)
         {
@@ -92,14 +107,16 @@ const UploadPDF = () => {
 
 
   const handleViewQuestion = () => {
-    setShowQuestion(!showQuestion);
+      setShowPreview(true); 
+    };
+  const handleClosePreview = () => {
+      setShowPreview(false); 
   };
 
   const handleDownloadQuestion = () => {
     const element = document.createElement("a");
-    const file = new Blob([question], { type: "text/plain" });
-    element.href = URL.createObjectURL(file);
-    element.download = `${fileName}_question_paper.txt`;
+    element.href =pdfurl.current;
+    element.download = `${fileName}_question_paper.pdf`;
     document.body.appendChild(element);
     element.click();
   };
@@ -111,7 +128,7 @@ const UploadPDF = () => {
   const handleDeleteItem = (indexToDelete) => {
     const updatedItems = newItems.filter((_, index) => index !== indexToDelete);
     setNewItems(updatedItems);
-    setMenuVisible(null); // Hide menu after deleting
+    setMenuVisible(null);
     checkGenerateButton(updatedItems);
   };
 
@@ -180,7 +197,7 @@ const UploadPDF = () => {
           Generate Questions
         </button>
       </div>
-
+      
       {questionGenerated && (
         <div className="bottom-box">
           <div className="title-box">{fileName} Question Paper ({difficulty})</div>
@@ -194,8 +211,14 @@ const UploadPDF = () => {
           </div>
         </div>
       )}
-
-      <h6>{message}</h6>
+    {showPreview && (
+         <div className="popup-overlay" onClick={handleClosePreview}>
+         <div className="popup-content" onClick={(e) => e.stopPropagation()}>
+           <span className="close-button" onClick={handleClosePreview}>&times;</span>
+           <iframe src={questions} title="Question Paper Preview" className="pdf-viewer"></iframe>
+         </div>
+       </div>
+      )}
     </div>
   );
 };
