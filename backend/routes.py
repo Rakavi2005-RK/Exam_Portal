@@ -1,13 +1,18 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify,send_file,Response
 from models import User,db,bcrypt
 from flask_jwt_extended import create_access_token
 from flask_cors import CORS
 from flask_mail import Message
 import random
+import json
 from extensions import mail 
 from pypdf import PdfReader
-from google import genai
-from 
+import google.generativeai as genai
+from reportlab.platypus import  SimpleDocTemplate,Paragraph,PageBreak,Spacer
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.pagesizes import A4
+from io import BytesIO
+
 
 
 routes = Blueprint("routes", __name__)
@@ -100,15 +105,25 @@ def reset_password():
 @routes.route("/Pdffile", methods=["POST"])
 
 def pdf_file():
+    q_type={}
     if "pdfFile" not in request.files:
-        return jsonify({"message": "No file uploaded"}), 400
+        return Response(f"No file uploaded",status=400,mimetype="text/plain")
+    
 
     userpdf = request.files["pdfFile"]
     user_filename = request.form.get("fileName")
-
+    difficulty=request.form.get("difficulty")
+    newItems_json=request.form.get("newItems","[]")
+    try:
+        newItems = json.loads(newItems_json)
+    except json.JSONDecodeError:
+        return Response("Invalid JSON data", status=400, mimetype="text/plain")
+    # checking the empty file
     try:
         reader = PdfReader(userpdf)
         num_pages = len(reader.pages)
+        if(num_pages==0):
+             return Response(f"the file is empty",status=400,mimetype="text/plain")
         all_text = ""
         for i in range(num_pages): 
             page_text = reader.pages[i].extract_text()
@@ -117,16 +132,49 @@ def pdf_file():
 
         api_key = request.headers.get('Authorization')
         if not api_key:
-            return jsonify({'error': 'API key is missing'}), 401
+            return Response(f"Error : API key is missing",status=401,mimetype="text/plain")
 
         if api_key.startswith("Bearer "):
             api_key = api_key.split("Bearer ")[1]
 
+        try:
+            genai.configure(api_key=api_key)
+            model=genai.GenerativeModel("gemini-1.5-flash")
+            model_response = model.generate_content(contents = (
+                f"Generate questions strictly based on the syllabus content provided below with {difficulty} to the syllabus"
+                f"Each question should be categorized by its corresponding mark allocation. "
+                f"The following structure defines the number of questions for each mark category: {newItems_json}. "
+                f"Format the output with a heading indicating the marks for each set of questions with bold letters . "
+                f"Ensure all questions are relevant to the syllabus and do not include any additional information. "
+                f"\n\nSyllabus Content:\n{all_text}"
+                f"provide the title first for the syllabus\n"))
 
-        client=genai.Client(api_key=api_key)
-        model_response = client.models.generate_content( model="gemini-2.0-flash",contents="generate question based on the syllabus  2 mark  and 10 questions only not other information are aligned line by line"+all_text)
-        model_output = model_response.text
+            model_output = model_response.text if hasattr(model_response, "text") else None
+
+            if not model_output or model_output.strip() == "":
+                return Response("AI model did not generate any content", status=500, mimetype="text/plain")
+        except Exception as e:
+                return Response(f"Google AI Error: {str(e)}", status=500, mimetype="text/plain")
+
+        # converting the text to document
+        
+        buffer=BytesIO()
+        doc=SimpleDocTemplate(buffer,pagesize=A4)
+        styles=getSampleStyleSheet()
+        story = []
+        questions_list = model_output.strip().split("\n")
+        for question in questions_list:
+            if question.strip():  
+                story.append(Paragraph(question.strip(), styles["Normal"]))  
+                story.append(Spacer(1, 12))  
+
+        doc.build(story)
+        if(buffer.getvalue()==b""):
+            return Response(f"sorry",status=404,mimetype="text/plain")
+        
+        buffer.seek(0) 
+        return send_file(buffer, mimetype="application/pdf")
 
     except Exception as e:
         print(f"Error: {e}") 
-        return jsonify({"message": "error", "error": str(e)}), 500
+        return Response(f"Error {str(e)}",status=500 ,mimetype="text/plain")
